@@ -97,7 +97,7 @@ public class Cmd_Pixiv implements CommandPremise {
                 .toList()
                 .stream()
                 .map(Object::toString)
-                .collect(Collectors.joining(",")) + "\n```").queue();
+                .collect(Collectors.joining("\n")) + "\n```").queue();
             return;
         }
         message.reply("処理に失敗しました。必要な引数が足りないかもしれません。").queue();
@@ -151,7 +151,7 @@ public class Cmd_Pixiv implements CommandPremise {
                 .toList()
                 .stream()
                 .map(Object::toString)
-                .collect(Collectors.joining(",")) + "\n```").queue();
+                .collect(Collectors.joining("\n")) + "\n```").queue();
             return;
         }
         message.reply("処理に失敗しました。必要な引数が足りないかもしれません。").queue();

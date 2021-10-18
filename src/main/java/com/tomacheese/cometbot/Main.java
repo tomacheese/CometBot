@@ -12,6 +12,8 @@ import cloud.commandframework.meta.CommandMeta;
 import com.tomacheese.cometbot.lib.ClassFinder;
 import com.tomacheese.cometbot.lib.CometConfig;
 import com.tomacheese.cometbot.lib.CommandPremise;
+import com.tomacheese.cometbot.lib.FeedManager;
+import com.tomacheese.cometbot.tasks.Task_CrawlRSS;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Member;
@@ -19,6 +21,8 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
+import org.quartz.*;
+import org.quartz.impl.StdSchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,11 +31,14 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.text.MessageFormat;
+import java.util.List;
 
 public class Main {
     static Logger logger;
     static CometConfig config;
     static GitHub github;
+    static JDA jda;
+    static FeedManager feedManager;
 
     public static void main(String[] args) {
         logger = LoggerFactory.getLogger("CometBot");
@@ -57,7 +64,6 @@ public class Main {
         }
 
         logger.info("Login discord");
-        JDA jda;
         try {
             jda = JDABuilder.createDefault(config.getDiscordToken())
                 .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_PRESENCES,
@@ -74,6 +80,8 @@ public class Main {
             return;
         }
         registerCommand(jda);
+
+        feedManager = new FeedManager();
     }
 
     static void registerCommand(JDA jda){
@@ -98,8 +106,7 @@ public class Main {
                 sender -> {
                     MessageReceivedEvent event = sender.getEvent().orElse(null);
 
-                    if (sender instanceof JDAGuildSender) {
-                        JDAGuildSender jdaGuildSender = (JDAGuildSender) sender;
+                    if (sender instanceof JDAGuildSender jdaGuildSender) {
                         return new JDAGuildSender(event, jdaGuildSender.getMember(), jdaGuildSender.getTextChannel());
                     }
 
@@ -108,8 +115,7 @@ public class Main {
                 user -> {
                     MessageReceivedEvent event = user.getEvent().orElse(null);
 
-                    if (user instanceof JDAGuildSender) {
-                        JDAGuildSender guildUser = (JDAGuildSender) user;
+                    if (user instanceof JDAGuildSender guildUser) {
                         return new JDAGuildSender(event, guildUser.getMember(), guildUser.getTextChannel());
                     }
 
@@ -190,7 +196,53 @@ public class Main {
         }
     }
 
+    static void registerTask() {
+        SchedulerFactory factory = new StdSchedulerFactory();
+        List<TaskConfig> tasks = List.of(
+            new TaskConfig(
+                Task_CrawlRSS.class,
+                "crawlrss",
+                "cometbot",
+                DailyTimeIntervalScheduleBuilder
+                    .dailyTimeIntervalSchedule()
+                    .startingDailyAt(TimeOfDay.hourMinuteAndSecondOfDay(0, 0, 0))
+                    .withInterval(30, DateBuilder.IntervalUnit.MINUTE))
+        );
+
+        try {
+            Scheduler scheduler = factory.getScheduler();
+            scheduler.start();
+
+            for (TaskConfig task : tasks) {
+                logger.info("registerTask: " + task.name());
+                scheduler.scheduleJob(
+                    JobBuilder.newJob(task.clazz())
+                        .withIdentity(task.name(), task.group())
+                        .build(),
+                    TriggerBuilder.newTrigger()
+                        .withIdentity(task.name(), task.group())
+                        .withSchedule(task.scheduleBuilder())
+                        .build()
+                );
+            }
+        } catch (SchedulerException e) {
+            e.printStackTrace();
+        }
+    }
+
+    record TaskConfig(Class<? extends Job> clazz, String name, String group,
+                      ScheduleBuilder<?> scheduleBuilder) {
+    }
+
     public static Logger getLogger() {
         return logger;
+    }
+
+    public static FeedManager getFeedManager() {
+        return feedManager;
+    }
+
+    public static JDA getJDA() {
+        return jda;
     }
 }

@@ -1,6 +1,5 @@
 package com.tomacheese.cometbot;
 
-import ch.qos.logback.classic.Level;
 import cloud.commandframework.ArgumentDescription;
 import cloud.commandframework.Command;
 import cloud.commandframework.exceptions.*;

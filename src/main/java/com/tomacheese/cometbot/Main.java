@@ -81,6 +81,7 @@ public class Main {
         registerCommand(jda);
 
         feedManager = new FeedManager();
+        registerTask();
     }
 
     static void registerCommand(JDA jda){
